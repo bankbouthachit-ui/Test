@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"> <!-- สำคัญ: ต้องมีเพื่อให้ตัวอักษรจีน/ไทยไม่เพี้ยน -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HSK4-5 生词交互闪卡</title>
+
+  <!-- Google Font (ตัวอย่าง: Noto Sans SC) -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ----------------------------
+       RESET + CSS VARIABLES
+       ---------------------------- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #363333;         /* พื้นหลังหน้า */
+      --card-bg: #ffffff;    /* พื้นหลังการ์ดหน้า */
+      --card-back: #f7f7f7;  /* พื้นหลังด้านหลังการ์ด */
+      --accent: #4CAF50;     /* ปุ่ม/สีเน้น */
+      --muted: #666666;      /* สีตัวหนังสือรอง */
+      --text: #222222;
+      --radius: 12px;
+    }
+
+    /* ----------------------------
+       BODY / LAYOUT
+       ---------------------------- */
+    body {
+      font-family: "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 30px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      align-items: center;
+    }
+
+    h1 {
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    /* ----------------------------
+       CONTROLS (ปุ่มบน/ล่าง)
+       ---------------------------- */
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #fff;
+    }
+
+    /* ----------------------------
+       FLASHCARD (3D flip)
+       ---------------------------- */
+    .deck {
+      width: 100%;
+      max-width: 640px;
+      perspective: 1000px; /* ให้เกิดมิติเมื่อหมุน */
+    }
+
+    .card {
+      width: 100%;
+      height: 300px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.6s;
+      cursor: pointer;
+    }
+
+    .card.is-flipped { transform: rotateY(180deg); }
+
+    .card-face {
+      position: absolute;
+      inset: 0; /* top:0; right:0; bottom:0; left:0 */
+      border-radius: var(--radius);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      backface-visibility: hidden;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+    }
+
+    .card-face.front {
+      background: var(--card-bg);
+    }
+
+    .card-face.back {
+      background: var(--card-back);
+      transform: rotateY(180deg); /* ด้านหลังหมุน 180 เพื่อให้ตรงกันเวลาหมุนการ์ด */
+    }
+
+    .word {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: 1px;
+    }
+
+    .pinyin {
+      font-size: 18px;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .meaning {
+      font-size: 20px;
+      color: #222;
+      text-align: center;
+    }
+
+    .example {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .footer {
+      margin-top: 6px;
+      color: rgba(255,255,255,0.8);
+      font-size: 13px;
+    }
+
+    /* responsive */
+    @media (max-width: 480px) {
+      .word { font-size: 36px; }
+      .pinyin { font-size: 16px; }
+      .card { height: 260px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" role="main">
+    <h1>HSK4-5 生词交互闪卡</h1>
+
+    <div class="controls" aria-hidden="false">
+      <button id="prevBtn" class="btn">← 上一张</button>
+      <button id="flipBtn" class="btn ghost">翻转 / 查看 (Space)</button>
+      <button id="nextBtn" class="btn">下一张 →</button>
+      <button id="shuffleBtn" class="btn ghost">洗牌 (S)</button>
+      <button id="favBtn" class="btn ghost">收藏 ♡</button>
+    </div>
+
+    <div class="deck" aria-live="polite">
+      <div id="card" class="card" tabindex="0" role="button" aria-pressed="false" aria-label="闪卡">
+        <!-- FRONT -->
+        <div class="card-face front" id="frontFace">
+          <div class="word" id="word">例</div>
+          <div class="pinyin" id="pinyin">lì</div>
+        </div>
+
+        <!-- BACK -->
+        <div class="card-face back" id="backFace">
+          <div class="meaning" id="meaning">ตัวอย่าง (泰文)</div>
+          <div class="example" id="example">例句：这是一个例句。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <small>Hotkeys: ← previous / → next / Space flip / S shuffle / F favorite</small>
+    </div>
+  </div>
+
+  <script>
+    /* =======================
+       DATA (ตัวอย่างคำศัพท์)
+       โครงสร้าง: { word, pinyin, meaning_th, example_cn (optional) }
+       ======================= */
+    const vocab = [
+      { word: "交流",  pinyin: "jiāoliú",  meaning_th: "สื่อสาร, แลกเปลี่ยน (ความคิด)", example_cn: "我们要多交流经验。" },
+      { word: "提高",  pinyin: "tígāo",    meaning_th: "ยกระดับ, ปรับปรุง (เพิ่มขึ้น)", example_cn: "他想提高汉语水平。" },
+      { word: "减少",  pinyin: "jiǎnshǎo", meaning_th: "ลดลง", example_cn: "为了健康要减少糖分摄入。" },
+      { word: "复杂",  pinyin: "fùzá",      meaning_th: "ซับซ้อน", example_cn: "这个问题很复杂，需要讨论。" },
+      { word: "负责",  pinyin: "fùzé",      meaning_th: "รับผิดชอบ", example_cn: "他负责这个项目。" },
+      { word: "发展",  pinyin: "fāzhǎn",   meaning_th: "พัฒนา", example_cn: "经济迅速发展。" },
+      { word: "明确",  pinyin: "míngquè",   meaning_th: "ชัดเจน", example_cn: "请把要求说得更明确。" },
+      { word: "减少",  pinyin: "jiǎnshǎo", meaning_th: "ลด (ซ้ำตัวอย่างเพื่อแสดงว่าซ้ำได้)", example_cn: "" },
+      { word: "影响",  pinyin: "yǐngxiǎng",meaning_th: "ผลกระทบ", example_cn: "噪音会影响睡眠。" },
+      { word: "结果",  pinyin: "jiéguǒ",   meaning_th: "ผลลัพธ์", example_cn: "结果令人满意。" }
+    ];
+
+    /* =======================
+       STATE
+       ======================= */
+    let order = Array.from({length: vocab.length}, (_, i) => i); // ลำดับไอเท็ม (support shuffle)
+    let currentIndex = 0;  // ตำแหน่งใน order
+    let flipped = false;   // สถานะการ์ด (หงาย/คว่ำ)
+
+    /* =======================
+       STORAGE / Persist (localStorage)
+       - เราจะบันทึก order และ currentIndex แบบง่าย ๆ
+       ======================= */
+    const PROG_KEY = 'hsk_flashcards_progress_v1';
+    const FAV_KEY = 'hsk_flashcards_favs_v1';
+
+    function saveProgress() {
+      const payload = { order, currentIndex };
+      try { localStorage.setItem(PROG_KEY, JSON.stringify(payload)); }
+      catch(e) { /* storage อาจถูกปิดในบางกรณี */ }
+    }
+
+    function loadProgress() {
+      try {
+        const raw = localStorage.getItem(PROG_KEY);
+        if (!raw) return;
+        const obj = JSON.parse(raw);
+        if (obj && Array.isArray(obj.order) && typeof obj.currentIndex === 'number') {
+          // validate ความยาวเท่ากับ vocab
+          if (obj.order.length === vocab.length) {
+            order = obj.order;
+            currentIndex = Math.min(Math.max(0, obj.currentIndex), order.length - 1);
+          }
+        }
+      } catch(e) { /* ignore parse errors */ }
+    }
+
+    /* =======================
+       RENDER
+       - เอาข้อมูลจาก vocab[ order[currentIndex] ] มาแสดง
+       ======================= */
+    function renderCard() {
+      const idx = order[currentIndex];
+      const item = vocab[idx];
+      document.getElementById('word').textContent = item.word;
+      document.getElementById('pinyin').textContent = item.pinyin || '';
+      document.getElementById('meaning').textContent = item.meaning_th || '';
+      document.getElementById('example').textContent = item.example_cn || '';
+      updateFavButton();
+    }
+
+    /* =======================
+       FLIP / NAV FUNCTIONS
+       ======================= */
+    const cardEl = document.getElementById('card');
+
+    function flipCard(force) {
+      flipped = (typeof force === 'boolean') ? force : !flipped;
+      cardEl.classList.toggle('is-flipped', flipped);
+      cardEl.setAttribute('aria-pressed', String(flipped));
+    }
+
+    function nextCard() {
+      currentIndex = (currentIndex + 1) % order.length;
+      flipCard(false);
+      renderCard();
+      saveProgress();
+    }
+    function prevCard() {
+      currentIndex = (currentIndex - 1 + order.length) % order.length;
+      flipCard(false);
+      renderCard();
+      saveProgress();
+    }
+
+    /* =======================
+       SHUFFLE (Fisher-Yates)
+       ======================= */
+    function shuffleDeck() {
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      currentIndex = 0;
+      flipCard(false);
+      renderCard();
+      saveProgress();
+    }
+
+    /* =======================
+       FAVORITE (localStorage as set of indices)
+       ======================= */
+    function getFavs() {
+      try {
+        return new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]'));
+      } catch (e) { return new Set(); }
+    }
+    function toggleFav() {
+      const idx = order[currentIndex];
+      const favs = getFavs();
+      if (favs.has(idx)) favs.delete(idx); else favs.add(idx);
+      localStorage.setItem(FAV_KEY, JSON.stringify([...favs]));
+      updateFavButton();
+    }
+    function updateFavButton() {
+      const favs = getFavs();
+      const btn = document.getElementById('favBtn');
+      const idx = order[currentIndex];
+      btn.textContent = favs.has(idx) ? '已收藏 ♥' : '收藏 ♡';
+    }
+
+    /* =======================
+       EVENT LISTENERS (ปุ่ม + hotkeys)
+       ======================= */
+    document.getElementById('nextBtn').addEventListener('click', nextCard);
+    document.getElementById('prevBtn').addEventListener('click', prevCard);
+    document.getElementById('flipBtn').addEventListener('click', () => flipCard());
+    document.getElementById('shuffleBtn').addEventListener('click', shuffleDeck);
+    document.getElementById('favBtn').addEventListener('click', toggleFav);
+    cardEl.addEventListener('click', () => flipCard()); // คลิกการ์ดเพื่อเปิด/ปิด
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') { e.preventDefault(); flipCard(); }
+      else if (e.key === 'ArrowRight') nextCard();
+      else if (e.key === 'ArrowLeft') prevCard();
+      else if (e.key.toLowerCase() === 's') shuffleDeck();
+      else if (e.key.toLowerCase() === 'f') toggleFav();
+    });
+
+    /* =======================
+       INIT
+       ======================= */
+    loadProgress();
+    renderCard();
+    // ensure card is focusable for keyboard users
+    cardEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') flipCard();
+    });
+  </script>
+</body>
+</html>
